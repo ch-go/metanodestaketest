@@ -91,4 +91,70 @@ contract MetaNodeStakeTest is Test {
       stake.setMetaNodePerBlock(2 ether);
       assertEq(stake.MetaNodePerBlock(), 2 ether);
   }
+
+  function test_setStartEndBlock() public {
+      uint256 currentEnd = stake.endBlock();
+
+      vm.startPrank(admin);
+      stake.setStartBlock(currentEnd);
+      assertEq(stake.startBlock(), currentEnd);
+
+      stake.setEndBlock(currentEnd + 10);
+      assertEq(stake.endBlock(), currentEnd + 10);
+  }
+
+  function test_addPool_updatePool_setPoolWeight_poolLength() public {
+      MetaNodeToken stakeToken = new MetaNodeToken();
+
+      vm.startPrank(admin);
+      stake.addPool(address(stakeToken), 200, 1 ether, 5, true);
+      assertEq(stake.poolLength(), 2);
+
+      stake.updatePool(1, 2 ether, 7);
+      (, , , , , uint256 minDepositAmount, uint256 unstakeLockedBlocks) = stake.pool(1);
+      assertEq(minDepositAmount, 2 ether);
+      assertEq(unstakeLockedBlocks, 7);
+
+      stake.setPoolWeight(1, 300, true);
+      (, uint256 poolWeight, , , , , ) = stake.pool(1);
+      assertEq(poolWeight, 300);
+  }
+
+  function test_getMultiplier_adjustedBounds() public {
+      uint256 start = stake.startBlock();
+      uint256 end = stake.endBlock();
+      uint256 reward = stake.MetaNodePerBlock();
+
+      uint256 multiplier = stake.getMultiplier(start - 1, end + 1);
+      assertEq(multiplier, (end - start) * reward);
+  }
+
+
+
+  function test_unstakeAddsPendingMetaNode_and_withdrawAmountUnlocked() public {
+      vm.roll(block.number + 2);
+      vm.startPrank(user);
+      stake.depositETH{value: 1 ether}();
+
+      vm.roll(block.number + 5);
+      stake.unstake(0, 0.5 ether);
+      vm.stopPrank();
+
+      uint256 balanceBefore = metaNode.balanceOf(user);
+      vm.startPrank(user);
+      stake.claim(0);
+      vm.stopPrank();
+      uint256 balanceAfter = metaNode.balanceOf(user);
+      assertTrue(balanceAfter > balanceBefore, "claim should include pending meta node");
+
+      vm.roll(block.number + 1);
+      vm.startPrank(user);
+      stake.unstake(0, 0.2 ether);
+      vm.stopPrank();
+
+      vm.roll(block.number + 3);
+      (uint256 requestAmount, uint256 pendingWithdraw) = stake.withdrawAmount(0, user);
+      assertEq(requestAmount, 0.7 ether);
+      assertEq(pendingWithdraw, 0.7 ether);
+  }
 }
