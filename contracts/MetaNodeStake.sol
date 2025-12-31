@@ -143,7 +143,7 @@ contract MetaNodeStake is Initializable, UUPSUpgradeable, PausableUpgradeable, A
     event Withdraw(address indexed user, uint256 indexed poolId, uint256 amount, uint256 indexed blockNumber);
 
     event Claim(address indexed user, uint256 indexed poolId, uint256 MetaNodeReward);
-
+ 
     // ************************************** MODIFIER **************************************
 
     modifier checkPid(uint256 _pid) {
